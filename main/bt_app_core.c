@@ -14,11 +14,11 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "bt_app_core.h"
-#ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
-#include "driver/dac_continuous.h"
-#else
+//#ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
+//#include "driver/dac_continuous.h"
+//#else
 #include "driver/i2s_std.h"
-#endif
+//#endif
 #include "freertos/ringbuf.h"
 
 
@@ -58,11 +58,11 @@ static uint16_t ringbuffer_mode = RINGBUFFER_MODE_PROCESSING;
 /*********************************
  * EXTERNAL FUNCTION DECLARATIONS
  ********************************/
-#ifndef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
+//#ifndef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
 extern i2s_chan_handle_t tx_chan;
-#else
-extern dac_continuous_handle_t tx_chan;
-#endif
+//#else
+//extern dac_continuous_handle_t tx_chan;
+//#endif
 
 /*******************************
  * STATIC FUNCTION DEFINITIONS
@@ -138,11 +138,11 @@ static void bt_i2s_task_handler(void *arg)
                     break;
                 }
 
-            #ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
-                dac_continuous_write(tx_chan, data, item_size, &bytes_written, -1);
-            #else
+          //  #ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
+          //      dac_continuous_write(tx_chan, data, item_size, &bytes_written, -1);
+          //  #else
                 i2s_channel_write(tx_chan, data, item_size, &bytes_written, portMAX_DELAY);
-            #endif
+          //  #endif
                 vRingbufferReturnItem(s_ringbuf_i2s, (void *)data);
             }
         }

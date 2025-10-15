@@ -1,7 +1,34 @@
-/* LVGL Example project
+/* TML Speaker
  *
- * Basic project to test LVGL on ESP32 based projects.
+ * TML Speaker is a project to test LVGL on ESP32 based projects.
  *
+ * Author: Adilson Dias(API-Led Pty Ltd -> Tine Memories Laser(TML)
+ * Date: 2023-06-5
+ * Version: 1.0.8
+ *
+ * This project requires a LCD panel with the following specifications:
+ * - Resolution: 128x64
+ * - Interface: SPI
+ * - Driver: SSD1306
+ *
+ * This project requires a Bluetooth module with the following specifications:
+ * - Interface: UART
+ * - Driver: BT05
+ *
+ * This project requires a Audio Jack with the following specifications:
+ * - Interface: Jack
+ * - Driver: Audio Jack
+ *
+ * A specific PCB was designed to fit the above requirements with audio amplifier and
+ * 3 x 3W speakers(left, right and subwoofer). Potentiometers were added to adjust the volume
+ * and the bass and treble.
+ * CD4066BE were used to switch the audio source between the Jack and the Bluetooth.
+ * PCM5102APWR was used as DAC to convert the digital audio signal from ESP32 to an analog audio signal.
+ * 3x LM386N-3 was used to amplify the audio signal: left, right and subwoofer.
+ *
+ * The PCB design was done in EasyEDA and the Gerbers were generated with EasyEDA.
+ * The components were soldered by Adilson Dias(API-Led Pty Ltd -> Tine Memories Laser(TML)
+
  * This example code is in the Public Domain (or CC0 licensed, at your option.)
  *
  * Unless required by applicable law or agreed to in writing, this
@@ -12,7 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <esp_log.h>
+// #include <esp_log.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -23,9 +50,9 @@
 
 #include "soc/soc_caps.h"
 #include "esp_log.h"
-#include "esp_adc/adc_oneshot.h"
+/*#include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
-#include "esp_adc/adc_cali_scheme.h"
+#include "esp_adc/adc_cali_scheme.h"*/
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -48,7 +75,7 @@
 
 #include "esp_bt.h"
 #include "bt_app_core.h"
-#include "bt_app_av.h"
+// #include "bt_app_av.h"
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
@@ -65,8 +92,13 @@
 #define TAG "TML_SPEAKER"
 #define LV_TICK_PERIOD_MS 1
 
+/* log tags */
+#define BT_AV_TAG "BT_AV"
+#define BT_RC_TG_TAG "RC_TG"
+#define BT_RC_CT_TAG "RC_CT"
+
 /* device name */
-#define LOCAL_DEVICE_NAME "TML_SPEAKER_v5"
+#define LOCAL_DEVICE_NAME "TML_SPEAKER_v8"
 
 /* event for stack up */
 enum
@@ -81,19 +113,19 @@ enum
 #define APP_RC_CT_TL_RN_PLAYBACK_CHANGE (3)
 #define APP_RC_CT_TL_RN_PLAY_POS_CHANGE (4)
 
-#define I2S_DATA_PIN 22 //default 22 //DAC 14
-#define I2S_LRCK_PIN 25//15//25 //default 25 //DAC 15
-#define I2S_BCK_PIN 26//14//26 //DAC 13
+#define I2S_DATA_PIN 22 // default 25 //DAC 14
+#define I2S_LRCK_PIN 25 // 15//25 //default 22 //DAC 15
+#define I2S_BCK_PIN 26  // 14//26 //DAC 13
 
-//#define I2S_BCK_PIN 22
-//#define I2S_LRCK_PIN 26
-//#define I2S_DATA_PIN 25
+// #define I2S_BCK_PIN 22
+// #define I2S_LRCK_PIN 26
+// #define I2S_DATA_PIN 25
 
-#define LED_GPIO_PIN GPIO_NUM_21 //NOT USED    
-#define BT_CONFIRM_PIN GPIO_NUM_12 //To confirm BT connection
-//define SWITCH_GPIO_PIN GPIO_NUM_33 //To check if Audio is BT or jack.. 
-#define DIRECT_OUT_PIN 14 //jack output
-#define BT_OUT_PIN 33 //BT output
+#define LED_GPIO_PIN GPIO_NUM_21   // NOT USED
+#define BT_CONFIRM_PIN GPIO_NUM_12 // To confirm BT connection
+// define SWITCH_GPIO_PIN GPIO_NUM_33 //To check if Audio is BT or jack..
+#define DIRECT_OUT_PIN 14 // jack output
+#define BT_OUT_PIN 33     // BT output
 
 /* Application layer causes delay value */
 #define APP_DELAY_VALUE 50 // 5ms
@@ -109,7 +141,7 @@ int btState = 0; // false default
 int audioJackState = 0;
 // QueueHandle_t interputQueue;
 
-adc_oneshot_unit_handle_t adc1_handle;
+// adc_oneshot_unit_handle_t adc1_handle;
 
 /*******************************
  * STATIC FUNCTION DECLARATIONS
@@ -177,8 +209,8 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
 
 static int adc_raw[2][10];
 static int voltage[2][10];
-static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
-static void example_adc_calibration_deinit(adc_cali_handle_t handle);
+// static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
+// static void example_adc_calibration_deinit(adc_cali_handle_t handle);
 
 /********************************
  * STATIC FUNCTION DEFINITIONS
@@ -211,6 +243,7 @@ static void bt_av_new_track(void)
                                                    ESP_AVRC_RN_TRACK_CHANGE, 0);
     }
 }
+
 /*
 static void bt_av_playback_changed(void)
 {
@@ -263,15 +296,24 @@ void bt_i2s_driver_install(void)
 {
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.auto_clear = true;
-    
+
+    /*   .sample_rate = 44100,
+     .bits_per_sample = 16,
+     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           //2-channels
+     .communication_format = I2S_COMM_FORMAT_I2S_MSB,
+     .dma_buf_count = 6,
+     .dma_buf_len = 60,
+     .intr_alloc_flags = 0,                                                  //Default interrupt priority
+     .tx_desc_auto_clear = true   */
+
     i2s_std_config_t std_cfg = {
-       /* .clk_cfg  = {
-			.sample_rate_hz = 44100,
-			.clk_src = I2S_CLK_SRC_APLL, //I2S_CLK_SRC_DEFAULT
-			.mclk_multiple = I2S_MCLK_MULTIPLE_384,
-        },*/
-        .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(44100), //BT can only handle 16BIT
-        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO), //I2S_COMM_FORMAT_I2S_MSB //I2S_STD_PCM_SLOT_DEFAULT_CONFIG
+        /* .clk_cfg  = {
+             .sample_rate_hz = 44100,
+             .clk_src = I2S_CLK_SRC_APLL, //I2S_CLK_SRC_DEFAULT
+             .mclk_multiple = I2S_MCLK_MULTIPLE_384,
+         },*/
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(44100),                                                // BT can only handle 16BIT
+        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO), // I2S_COMM_FORMAT_I2S_MSB //I2S_STD_PCM_SLOT_DEFAULT_CONFIG
         .gpio_cfg = {
             .mclk = I2S_GPIO_UNUSED,
             .bclk = I2S_BCK_PIN,
@@ -285,9 +327,10 @@ void bt_i2s_driver_install(void)
             },
         },
     };
+
     /* enable I2S */
     ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_chan, NULL));
-   // ESP_ERROR_CHECK(i2s_channel_init_tdm_mode(tx_chan, &std_cfg));
+    // ESP_ERROR_CHECK(i2s_channel_init_tdm_mode(tx_chan, &std_cfg));
     ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_chan, &std_cfg));
     ESP_ERROR_CHECK(i2s_channel_enable(tx_chan));
 }
@@ -450,13 +493,13 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
                 ch_count = 1;
             }
 
-            i2s_channel_disable(tx_chan);
-            i2s_std_clk_config_t clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate);
-            i2s_std_slot_config_t slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, ch_count);
-            i2s_channel_reconfig_std_clock(tx_chan, &clk_cfg);
-            i2s_channel_reconfig_std_slot(tx_chan, &slot_cfg);
-            i2s_channel_enable(tx_chan);
-
+            /* i2s_channel_disable(tx_chan);
+             i2s_std_clk_config_t clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate);
+             i2s_std_slot_config_t slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_8BIT, ch_count);
+             i2s_channel_reconfig_std_clock(tx_chan, &clk_cfg);
+             i2s_channel_reconfig_std_slot(tx_chan, &slot_cfg);
+             i2s_channel_enable(tx_chan);
+ */
             ESP_LOGI(BT_AV_TAG, "Configure audio player: %x-%x-%x-%x",
                      a2d->audio_cfg.mcc.cie.sbc[0],
                      a2d->audio_cfg.mcc.cie.sbc[1],
@@ -822,15 +865,12 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
         bda = (uint8_t *)param->acl_conn_cmpl_stat.bda;
         ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT Connected to [%02x:%02x:%02x:%02x:%02x:%02x], status: 0x%x",
                  bda[0], bda[1], bda[2], bda[3], bda[4], bda[5], param->acl_conn_cmpl_stat.stat);
-        
-        
 
-        gpio_set_level(BT_OUT_PIN, 1);  //BT enabled
-        gpio_set_level(DIRECT_OUT_PIN, 0); //Jack  disabled
-        
+        gpio_set_level(BT_OUT_PIN, 1);     // BT enabled
+        gpio_set_level(DIRECT_OUT_PIN, 0); // Jack  disabled
+
         ESP_LOGI(BT_AV_TAG, "... Source changed to BT ...");
-        
-        
+
         break;
     /* when ACL disconnection completed, this event comes */
     case ESP_BT_GAP_ACL_DISCONN_CMPL_STAT_EVT:
@@ -838,9 +878,8 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
         ESP_LOGI(BT_AV_TAG, "ESP_BT_GAP_ACL_DISC_CMPL_STAT_EVT Disconnected from [%02x:%02x:%02x:%02x:%02x:%02x], reason: 0x%x",
                  bda[0], bda[1], bda[2], bda[3], bda[4], bda[5], param->acl_disconn_cmpl_stat.reason);
 
-        
-        gpio_set_level(BT_OUT_PIN, 0);  //BT Disabled
-        gpio_set_level(DIRECT_OUT_PIN, 1); //Jack  enabled
+        gpio_set_level(BT_OUT_PIN, 0);     // BT Disabled
+        gpio_set_level(DIRECT_OUT_PIN, 1); // Jack  enabled
 
         ESP_LOGI(BT_AV_TAG, "... Source changed to Jack ...");
 
@@ -863,7 +902,8 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
     /* when do the stack up, this event comes */
     case BT_APP_EVT_STACK_UP:
     {
-        esp_bt_dev_set_device_name(LOCAL_DEVICE_NAME);
+        // esp_bt_dev_set_device_name(LOCAL_DEVICE_NAME);
+        esp_bt_gap_set_device_name(LOCAL_DEVICE_NAME);
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
         assert(esp_avrc_ct_init() == ESP_OK);
@@ -1080,12 +1120,11 @@ void BT_Confirm_Task(void *params)
     while (true)
     {
         currenState = gpio_get_level(BT_CONFIRM_PIN);
-      //  printf("GPIO %d was pressed %d times. The value is %d\n", BT_CONFIRM_PIN, count, currenState);
-        if (currenState == 1) 
+        //  printf("GPIO %d was pressed %d times. The value is %d\n", BT_CONFIRM_PIN, count, currenState);
+        if (currenState == 1)
         {
             count++;
             printf("GPIO %d was pressed %d times. The value is %d\n", BT_CONFIRM_PIN, count, currenState);
-            
         }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -1106,8 +1145,8 @@ void app_main()
     gpio_config(&io_conf);
 */
 
-    //esp_rom_gpio_pad_select_gpio(LED_GPIO_PIN);
-    //gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
+    // esp_rom_gpio_pad_select_gpio(LED_GPIO_PIN);
+    // gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
 
     esp_rom_gpio_pad_select_gpio(BT_CONFIRM_PIN);
     gpio_set_direction(BT_CONFIRM_PIN, GPIO_MODE_INPUT);
@@ -1118,19 +1157,19 @@ void app_main()
     esp_rom_gpio_pad_select_gpio(DIRECT_OUT_PIN);
     gpio_set_direction(DIRECT_OUT_PIN, GPIO_MODE_OUTPUT);
 
-    gpio_set_level(BT_OUT_PIN, 0);  //BT Disabled
-    gpio_set_level(DIRECT_OUT_PIN, 1); //Jack  enabled
+    gpio_set_level(BT_OUT_PIN, 0);     // BT Disabled
+    gpio_set_level(DIRECT_OUT_PIN, 1); // Jack  enabled
 
-  /*  esp_rom_gpio_pad_select_gpio(SWITCH_GPIO_PIN);
-    gpio_set_direction(SWITCH_GPIO_PIN, GPIO_MODE_INPUT);
-    gpio_pulldown_en(SWITCH_GPIO_PIN);
-    gpio_pullup_dis(SWITCH_GPIO_PIN);
-    gpio_set_intr_type(SWITCH_GPIO_PIN, GPIO_INTR_POSEDGE);
-*/
+    /*  esp_rom_gpio_pad_select_gpio(SWITCH_GPIO_PIN);
+      gpio_set_direction(SWITCH_GPIO_PIN, GPIO_MODE_INPUT);
+      gpio_pulldown_en(SWITCH_GPIO_PIN);
+      gpio_pullup_dis(SWITCH_GPIO_PIN);
+      gpio_set_intr_type(SWITCH_GPIO_PIN, GPIO_INTR_POSEDGE);
+  */
     // interputQueue = xQueueCreate(1, sizeof(int));
-   // xTaskCreate(LED_Control_Task, "LED_Control_Task", 2048, NULL, 1, NULL);
+    // xTaskCreate(LED_Control_Task, "LED_Control_Task", 2048, NULL, 1, NULL);
 
-    xTaskCreate(BT_Confirm_Task, "BT_Confirm_Task", 2048, NULL, 1, NULL);
+    xTaskCreatePinnedToCore(BT_Confirm_Task, "BT_Confirm_Task", 2048, NULL, 1, NULL, 1);
     // gpio_install_isr_service(0);
     // gpio_isr_handler_add(SWITCH_GPIO_PIN, gpio_interrupt_handler, (void *)SWITCH_GPIO_PIN);
 
@@ -1153,7 +1192,7 @@ void app_main()
     // char strftime_buf[64];
     // struct tm timeinfo;
 
-    // Set timezone to China Standard Time
+    // Set timezone to Australia East Standard Time
     /* setenv("TZ", "AEST", 1);
      tzset();
 
@@ -1178,28 +1217,28 @@ void app_main()
      strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
      ESP_LOGI(TAG, "The current date/time in Melbourne is: %s", strftime_buf); */
 
-    //adc1_config_width(ADC_WIDTH_BIT_12);
-    //adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_0);
+    // adc1_config_width(ADC_WIDTH_BIT_12);
+    // adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_0);
 
     //-------------ADC1 Init---------------//
     // adc_oneshot_unit_handle_t adc1_handle;
-   // adc_oneshot_unit_init_cfg_t init_config1 = {
-   //     .unit_id = ADC_UNIT_1,
-   // };
-   // ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
+    // adc_oneshot_unit_init_cfg_t init_config1 = {
+    //     .unit_id = ADC_UNIT_1,
+    // };
+    // ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
 
     //-------------ADC1 Config---------------//
-   // adc_oneshot_chan_cfg_t config = {
-   //     .bitwidth = ADC_BITWIDTH_DEFAULT,
-   //     .atten = ADC_ATTEN_DB_12,
-   // };
-   // ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config));
+    // adc_oneshot_chan_cfg_t config = {
+    //     .bitwidth = ADC_BITWIDTH_DEFAULT,
+    //     .atten = ADC_ATTEN_DB_12,
+    // };
+    // ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config));
     //  ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, EXAMPLE_ADC1_CHAN1, &config));
 
     //-------------ADC1 Calibration Init---------------//
-   // adc_cali_handle_t adc1_cali_chan0_handle = NULL;
+    // adc_cali_handle_t adc1_cali_chan0_handle = NULL;
     // adc_cali_handle_t adc1_cali_chan1_handle = NULL;
-   // bool do_calibration1_chan0 = example_adc_calibration_init(ADC_UNIT_1, ADC_CHANNEL_0, ADC_ATTEN_DB_12, &adc1_cali_chan0_handle);
+    // bool do_calibration1_chan0 = example_adc_calibration_init(ADC_UNIT_1, ADC_CHANNEL_0, ADC_ATTEN_DB_12, &adc1_cali_chan0_handle);
     //  bool do_calibration1_chan1 = example_adc_calibration_init(ADC_UNIT_1, EXAMPLE_ADC1_CHAN1, EXAMPLE_ADC_ATTEN, &adc1_cali_chan1_handle);
     /*while (1)
     {
@@ -1213,8 +1252,8 @@ void app_main()
         vTaskDelay(pdMS_TO_TICKS(1000));
     }*/
     // Tear Down
-    //ESP_ERROR_CHECK(adc_oneshot_del_unit(adc1_handle));
-    //if (do_calibration1_chan0)
+    // ESP_ERROR_CHECK(adc_oneshot_del_unit(adc1_handle));
+    // if (do_calibration1_chan0)
     //{
     //    example_adc_calibration_deinit(adc1_cali_chan0_handle);
     //}
@@ -1222,7 +1261,7 @@ void app_main()
 
 /*---------------------------------------------------------------
         ADC Calibration
----------------------------------------------------------------*/
+---------------------------------------------------------------
 static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)
 {
     adc_cali_handle_t handle = NULL;
@@ -1292,7 +1331,7 @@ static void example_adc_calibration_deinit(adc_cali_handle_t handle)
     ESP_ERROR_CHECK(adc_cali_delete_scheme_line_fitting(handle));
 #endif
 }
-
+*/
 /* Creates a semaphore to handle concurrent call to lvgl stuff
  * If you wish to call *any* lvgl function from other threads/tasks
  * you should lock on the very same semaphore! */
@@ -1353,9 +1392,8 @@ static void guiTask(void *pvParameter)
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, LV_TICK_PERIOD_MS * 1000));
 
-     /* Create the demo application */
+    /* Create the demo application */
     // create_demo_application();
-
     lv_obj_t *lblSource = lv_label_create(lv_scr_act());
     lv_label_set_text(lblSource, "Source: ");
     lv_obj_set_style_text_font(lblSource, &lv_font_montserrat_18, 0);

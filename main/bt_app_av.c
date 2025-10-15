@@ -171,7 +171,7 @@ static void bt_av_notify_evt_handler(uint8_t event_id, esp_avrc_rn_param_t *even
         break;
     }
 }
-
+//NOT USED - function exist in MAIN.C
 void bt_i2s_driver_install(void)
 {
 /*

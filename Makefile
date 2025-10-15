@@ -3,5 +3,5 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := idf-lvgltest
+PROJECT_NAME := TMLSpeaker
 include $(IDF_PATH)/make/project.mk
