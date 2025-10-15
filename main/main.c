@@ -2,7 +2,7 @@
  *
  * TML Speaker is a project to test LVGL on ESP32 based projects.
  *
- * Author: Adilson Dias(API-Led Pty Ltd -> Tine Memories Laser(TML)
+ * Author: Adilson Dias(API-Led Pty Ltd -> Tiny Memories Laser(TML)
  * Date: 2023-06-5
  * Version: 1.0.8
  *
@@ -27,7 +27,7 @@
  * 3x LM386N-3 was used to amplify the audio signal: left, right and subwoofer.
  *
  * The PCB design was done in EasyEDA and the Gerbers were generated with EasyEDA.
- * The components were soldered by Adilson Dias(API-Led Pty Ltd -> Tine Memories Laser(TML)
+ * The components were soldered by Adilson Dias(API-Led Pty Ltd -> Tiny Memories Laser(TML)
 
  * This example code is in the Public Domain (or CC0 licensed, at your option.)
  *
